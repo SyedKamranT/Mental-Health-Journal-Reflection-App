@@ -34,7 +34,7 @@ const mainNavigation = [
   },
   {
     title: "History",
-    href: "/app/history",
+    href: "/app/journal",
     icon: History,
   },
   {
@@ -65,7 +65,7 @@ export function AppSidebar() {
           </div>
         </Link>
       </SidebarHeader>
-      
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>

@@ -1,205 +1,211 @@
-import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router";
 import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Textarea } from "../components/ui/textarea";
-import { Save, Sparkles, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { Badge } from "../components/ui/badge";
+import { ArrowLeft, Save, Sparkles, Loader2, PenLine } from "lucide-react";
+import { journalApi, type JournalAnalysis } from "../lib/api";
 import { toast } from "sonner";
 
 export function JournalEntryPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isEditMode = Boolean(id);
+
   const [content, setContent] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [wordCount, setWordCount] = useState(0);
-  
-  const isEditing = !!id;
+  const [saving, setSaving] = useState(false);
+  const [analysis, setAnalysis] = useState<JournalAnalysis | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [loadingEntry, setLoadingEntry] = useState(isEditMode);
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const text = e.target.value;
-    setContent(text);
-    const words = text.trim().split(/\s+/).filter(Boolean).length;
-    setWordCount(words);
+  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+
+  // Load existing entry in edit mode
+  useEffect(() => {
+    if (id) {
+      journalApi
+        .get(id)
+        .then((entry) => {
+          setContent(entry.content);
+          if (entry.analysis) {
+            setAnalysis(entry.analysis);
+            setSubmitted(true);
+          }
+        })
+        .catch((err) => {
+          toast.error("Failed to load entry.");
+          navigate("/app/journal");
+        })
+        .finally(() => setLoadingEntry(false));
+    }
+  }, [id]);
+
+  const handleSave = async () => {
+    if (wordCount < 2) {
+      toast.error("Write at least a few words before saving.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (isEditMode && id) {
+        await journalApi.update(id, content);
+        toast.success("Entry updated.");
+        navigate("/app/journal");
+      } else {
+        const result = await journalApi.create(content);
+        if (result.analysis) {
+          setAnalysis(result.analysis);
+        }
+        setSubmitted(true);
+        toast.success("Entry saved & analyzed!");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save entry.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSubmit = async () => {
-    setIsProcessing(true);
-    toast.loading("Processing your entry...", { id: "processing" });
-    
-    // Simulate LLM processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast.success("Entry saved successfully!", { id: "processing" });
-    setIsProcessing(false);
-    setIsSubmitted(true);
-  };
-
-  if (isSubmitted) {
+  if (loadingEntry) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="max-w-3xl mx-auto space-y-6"
-      >
-        <Card className="bg-gradient-to-br from-[#8AA2C8]/10 to-[#B6CAEB]/5 border-[#8AA2C8]/20">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="size-10 rounded-lg bg-[#8AA2C8] flex items-center justify-center">
-                <Sparkles className="size-5 text-black" />
-              </div>
-              <CardTitle>Entry Reflected</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Your entry has been saved and analyzed. Here's what we discovered:
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Your entry reflects a moment of introspection and growth. You explored themes 
-              of personal clarity, challenges with balance, and gratitude for small moments. 
-              There's a sense of forward momentum paired with gentle self-awareness.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Emotional Themes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 rounded-full text-xs bg-[#8AA2C8]/10 text-[#B6CAEB] border border-[#8AA2C8]/20">
-                Reflective
-              </span>
-              <span className="px-3 py-1 rounded-full text-xs bg-[#9AAB63]/10 text-[#9AAB63] border border-[#9AAB63]/20">
-                Hopeful
-              </span>
-              <span className="px-3 py-1 rounded-full text-xs bg-[#F7D768]/10 text-[#E8C84D] border border-[#F7D768]/20">
-                Focused
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Reflective Questions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-sm">
-                What specific actions could help you maintain this sense of clarity?
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-sm">
-                How can you honor the balance you're seeking while staying present?
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex gap-3">
-          <Button onClick={() => navigate("/app/history")} variant="outline" className="flex-1">
-            View All Entries
-          </Button>
-          <Button 
-            onClick={() => {
-              setContent("");
-              setWordCount(0);
-              setIsSubmitted(false);
-            }} 
-            className="flex-1 bg-[#8AA2C8] hover:bg-[#B6CAEB] text-black"
-          >
-            Write Another Entry
-          </Button>
-        </div>
-      </motion.div>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="size-8 animate-spin text-[#8AA2C8]" />
+      </div>
     );
   }
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="max-w-4xl mx-auto space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            {isEditing ? "Edit Entry" : "New Journal Entry"}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {new Date().toLocaleDateString("en-US", { 
-              weekday: "long", 
-              year: "numeric", 
-              month: "long", 
-              day: "numeric" 
-            })}
-          </p>
+  // Post-submission view with analysis
+  if (submitted && analysis) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/app/journal")}>
+            <ArrowLeft className="size-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold">Reflection Complete</h1>
+            <p className="text-sm text-muted-foreground">Here's what I noticed in your entry</p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            {wordCount} {wordCount === 1 ? "word" : "words"}
-          </span>
-          <Button 
-            onClick={handleSubmit}
-            disabled={content.trim().length < 10 || isProcessing}
+
+        {/* Summary */}
+        <Card className="bg-gradient-to-br from-[#8AA2C8]/5 to-transparent border-[#8AA2C8]/20">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Sparkles className="size-5 text-[#8AA2C8]" />
+              <h2 className="font-medium">Summary</h2>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground leading-relaxed">{analysis.summary}</p>
+          </CardContent>
+        </Card>
+
+        {/* Themes */}
+        {analysis.themes.length > 0 && (
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium">Themes Detected</h2>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {analysis.themes.map((theme) => (
+                  <Badge
+                    key={theme}
+                    variant="secondary"
+                    className="bg-[#B6CAEB]/10 text-[#B6CAEB] border border-[#B6CAEB]/20"
+                  >
+                    {theme}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Reflective Questions */}
+        {analysis.reflective_questions.length > 0 && (
+          <Card className="bg-gradient-to-br from-[#F5B8DA]/5 to-transparent border-[#F5B8DA]/20">
+            <CardHeader>
+              <h2 className="font-medium">Questions for Deeper Reflection</h2>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {analysis.reflective_questions.map((q, i) => (
+                <p key={i} className="text-muted-foreground text-sm pl-4 border-l-2 border-[#E09CC3]/30">
+                  {q}
+                </p>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <Button
+            onClick={() => navigate("/app/journal/new")}
             className="bg-[#8AA2C8] hover:bg-[#B6CAEB] text-black"
           >
-            {isProcessing ? (
-              <>
-                <Loader2 className="size-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Save className="size-4 mr-2" />
-                Save & Reflect
-              </>
-            )}
+            <PenLine className="size-4 mr-2" />
+            Write Another
+          </Button>
+          <Button variant="outline" onClick={() => navigate("/app/journal")}>
+            View History
           </Button>
         </div>
       </div>
+    );
+  }
 
-      <Card className="border-border/50">
-        <CardContent className="p-0">
+  // Writing view
+  return (
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="size-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-semibold">
+            {isEditMode ? "Edit Entry" : "New Journal Entry"}
+          </h1>
+          <p className="text-sm text-muted-foreground">Write freely. No judgment, just reflection.</p>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="p-6">
           <Textarea
+            placeholder="What's on your mind today? Start writing and let your thoughts flow..."
             value={content}
-            onChange={handleContentChange}
-            placeholder="How are you feeling today? What's on your mind?
-
-Take your time. There's no rush, no judgment—just you and your thoughts.
-
-Write freely about whatever comes to mind..."
-            className="min-h-[500px] border-0 resize-none focus-visible:ring-0 text-base leading-relaxed p-8 bg-transparent"
+            onChange={(e) => setContent(e.target.value)}
+            className="min-h-[300px] resize-none border-none bg-transparent text-base focus-visible:ring-0 p-0"
+            disabled={saving}
           />
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-[#B6CAEB]/5 to-[#8AA2C8]/5 border-[#8AA2C8]/20">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3 text-sm">
-            <Sparkles className="size-4 text-[#8AA2C8] mt-0.5 flex-shrink-0" />
-            <p className="text-muted-foreground">
-              After saving, our AI will generate personalized insights, emotional themes, 
-              and reflective questions based on your entry. Your privacy is always protected.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {wordCount} {wordCount === 1 ? "word" : "words"}
+        </p>
+        <Button
+          onClick={handleSave}
+          disabled={saving || wordCount < 2}
+          className="bg-[#8AA2C8] hover:bg-[#B6CAEB] text-black gap-2"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              {isEditMode ? "Saving..." : "Saving & Analyzing..."}
+            </>
+          ) : (
+            <>
+              {isEditMode ? <Save className="size-4" /> : <Sparkles className="size-4" />}
+              {isEditMode ? "Save Changes" : "Save & Reflect"}
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }

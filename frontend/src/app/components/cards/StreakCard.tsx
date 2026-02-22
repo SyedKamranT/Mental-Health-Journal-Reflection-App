@@ -1,24 +1,25 @@
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent, CardHeader } from "../ui/card";
 import { Flame } from "lucide-react";
 
-export function StreakCard() {
+interface StreakCardProps {
+  days?: number;
+  message?: string;
+}
+
+export function StreakCard({ days = 0, message = "" }: StreakCardProps) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-[#9AAB63]/10 flex items-center justify-center">
-            <Flame className="size-4 text-[#808E53]" />
-          </div>
-          <CardTitle>Writing Streak</CardTitle>
+    <Card className="bg-gradient-to-br from-[#F5B8DA]/10 to-transparent border-[#F5B8DA]/20">
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Flame className="size-4 text-[#E09CC3]" />
+          Writing Streak
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          <div className="text-3xl font-semibold">7 days</div>
-          <p className="text-sm text-muted-foreground">
-            Keep the momentum going!
-          </p>
+        <div className="text-3xl font-bold">
+          {days} {days === 1 ? "day" : "days"}
         </div>
+        <p className="text-xs text-muted-foreground">{message}</p>
       </CardContent>
     </Card>
   );

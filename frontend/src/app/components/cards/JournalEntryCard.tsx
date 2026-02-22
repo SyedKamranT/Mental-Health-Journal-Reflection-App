@@ -3,7 +3,7 @@ import { Card, CardContent } from "../ui/card";
 import { Clock, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 
-interface JournalEntry {
+interface JournalEntryCardProps {
   id: string;
   date: string;
   preview: string;
@@ -11,13 +11,9 @@ interface JournalEntry {
   wordCount: number;
 }
 
-interface JournalEntryCardProps {
-  entry: JournalEntry;
-}
-
-export function JournalEntryCard({ entry }: JournalEntryCardProps) {
-  const date = new Date(entry.date);
-  const formattedDate = date.toLocaleDateString("en-US", {
+export function JournalEntryCard({ id, date, preview, themes, wordCount }: JournalEntryCardProps) {
+  const dateObj = new Date(date);
+  const formattedDate = dateObj.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -33,15 +29,15 @@ export function JournalEntryCard({ entry }: JournalEntryCardProps) {
               <Clock className="size-4" />
               <span>{formattedDate}</span>
               <span>•</span>
-              <span>{entry.wordCount} words</span>
+              <span>{wordCount} words</span>
             </div>
-            
+
             <p className="text-sm leading-relaxed line-clamp-2">
-              {entry.preview}
+              {preview}
             </p>
 
             <div className="flex flex-wrap gap-2">
-              {entry.themes.map((theme) => (
+              {themes.map((theme) => (
                 <span
                   key={theme}
                   className="px-2.5 py-1 rounded-full text-xs bg-[#8AA2C8]/10 text-[#B6CAEB] border border-[#8AA2C8]/20"
@@ -53,7 +49,7 @@ export function JournalEntryCard({ entry }: JournalEntryCardProps) {
           </div>
 
           <Button asChild variant="ghost" size="icon" className="flex-shrink-0">
-            <Link to={`/app/journal/${entry.id}`}>
+            <Link to={`/app/journal/${id}`}>
               <ChevronRight className="size-4" />
               <span className="sr-only">View entry</span>
             </Link>

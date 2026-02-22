@@ -1,112 +1,133 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
-import { Calendar, Search, Filter, Clock } from "lucide-react";
-import { motion } from "motion/react";
+import { Input } from "../components/ui/input";
+import { Card, CardContent } from "../components/ui/card";
+import { PenLine, Search, Loader2 } from "lucide-react";
 import { JournalEntryCard } from "../components/cards/JournalEntryCard";
-
-const mockEntries = [
-  {
-    id: "1",
-    date: "2026-02-21",
-    preview: "Today was full of clarity. I spent time thinking about my goals and what truly matters. The morning meditation helped center my thoughts...",
-    themes: ["Reflective", "Hopeful", "Focused"],
-    wordCount: 342,
-  },
-  {
-    id: "2",
-    date: "2026-02-20",
-    preview: "Feeling grateful for the small moments today. Coffee with a friend reminded me how important connections are...",
-    themes: ["Grateful", "Connected"],
-    wordCount: 218,
-  },
-  {
-    id: "3",
-    date: "2026-02-19",
-    preview: "Challenging day at work, but I managed to stay grounded. Taking breaks to breathe made a difference...",
-    themes: ["Resilient", "Mindful"],
-    wordCount: 267,
-  },
-  {
-    id: "4",
-    date: "2026-02-18",
-    preview: "Explored some old fears today. Writing about them helped me see them differently, less scary and more manageable...",
-    themes: ["Vulnerable", "Brave"],
-    wordCount: 405,
-  },
-  {
-    id: "5",
-    date: "2026-02-17",
-    preview: "A quiet Sunday. Spent time reading and reflecting on the week. Sometimes the peaceful days are the most valuable...",
-    themes: ["Peaceful", "Content"],
-    wordCount: 189,
-  },
-];
+import { EmptyState } from "../components/states/EmptyState";
+import { journalApi, type JournalListItem } from "../lib/api";
+import { toast } from "sonner";
 
 export function JournalHistoryPage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [entries, setEntries] = useState<JournalListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 20;
+
+  const fetchEntries = useCallback(
+    async (pageNum: number, searchTerm: string, append = false) => {
+      try {
+        const data = await journalApi.list({
+          search: searchTerm || undefined,
+          page: pageNum,
+          limit,
+        });
+        setEntries((prev) => (append ? [...prev, ...data.entries] : data.entries));
+        setTotal(data.total);
+      } catch (err: any) {
+        toast.error("Failed to load entries.");
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    setLoading(true);
+    setPage(1);
+    fetchEntries(1, search).finally(() => setLoading(false));
+  }, [search, fetchEntries]);
+
+  const handleLoadMore = async () => {
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    await fetchEntries(nextPage, search, true);
+    setPage(nextPage);
+    setLoadingMore(false);
+  };
+
+  // Debounced search
+  const [searchInput, setSearchInput] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const hasMore = entries.length < total;
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <h1 className="text-2xl font-semibold mb-2">Journal History</h1>
-        <p className="text-muted-foreground">
-          Your personal archive of reflection and growth
-        </p>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="flex flex-col md:flex-row gap-3"
-      >
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Search your entries..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-input-background border-border/50"
-          />
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Journal History</h1>
+          <p className="text-muted-foreground mt-1">
+            {total > 0 ? `${total} entr${total === 1 ? "y" : "ies"} total` : "Your reflection journey"}
+          </p>
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="size-4" />
-          Filter
+        <Button asChild className="bg-[#8AA2C8] hover:bg-[#B6CAEB] text-black">
+          <Link to="/app/journal/new" className="gap-2">
+            <PenLine className="size-4" />
+            New Entry
+          </Link>
         </Button>
-        <Button variant="outline" className="gap-2">
-          <Calendar className="size-4" />
-          Date Range
-        </Button>
-      </motion.div>
-
-      <div className="space-y-4">
-        {mockEntries.map((entry, index) => (
-          <motion.div
-            key={entry.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 + index * 0.05 }}
-          >
-            <JournalEntryCard entry={entry} />
-          </motion.div>
-        ))}
       </div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.6 }}
-        className="flex justify-center pt-4"
-      >
-        <Button variant="outline">Load More</Button>
-      </motion.div>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input
+          placeholder="Search your entries..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Entries List */}
+      {loading ? (
+        <div className="flex items-center justify-center h-40">
+          <Loader2 className="size-6 animate-spin text-[#8AA2C8]" />
+        </div>
+      ) : entries.length === 0 ? (
+        <EmptyState
+          title={search ? "No entries found" : "No entries yet"}
+          description={
+            search
+              ? "Try a different search term."
+              : "Start your reflection journey by writing your first entry."
+          }
+          action={search ? undefined : { label: "Write Your First Entry", href: "/app/journal/new" }}
+        />
+      ) : (
+        <div className="space-y-3">
+          {entries.map((entry) => (
+            <JournalEntryCard
+              key={entry.id}
+              id={entry.id}
+              date={entry.date}
+              preview={entry.preview}
+              themes={entry.themes}
+              wordCount={entry.wordCount}
+            />
+          ))}
+
+          {hasMore && (
+            <div className="flex justify-center pt-4">
+              <Button variant="outline" onClick={handleLoadMore} disabled={loadingMore}>
+                {loadingMore ? (
+                  <><Loader2 className="size-4 animate-spin mr-2" /> Loading...</>
+                ) : (
+                  "Load More"
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
